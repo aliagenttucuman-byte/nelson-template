@@ -1,0 +1,77 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nelson-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://nelson:secret@db:5432/appdb
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_HOST=qdrant
+      - LLM_PROVIDER=ollama
+      - LLM_MODEL=llama3.2:3b
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - db
+      - redis
+      - qdrant
+    networks:
+      - nelson-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nelson-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - nelson-net
+
+  db:
+    image: postgres:16-alpine
+    container_name: nelson-db
+    environment:
+      POSTGRES_USER: nelson
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: appdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - nelson-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: nelson-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - nelson-net
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: nelson-qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    networks:
+      - nelson-net
+
+volumes:
+  pgdata:
+  qdrant_storage:
+
+networks:
+  nelson-net:
+    driver: bridge
